@@ -2,6 +2,9 @@ pocketflow
 httpx
 beautifulsoup4
 openai
-pytest
+fastapi
+uvicorn[standard]
+python-dotenv
 colorthief
 cairosvg
+pytest

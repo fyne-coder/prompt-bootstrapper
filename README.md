@@ -47,7 +47,15 @@ Prerequisites:
      text = FetchSummaryNode("https://example.com")
      print(text[:200] + "…")
      PYCODE
-     ```
+    ```
+
+6. Configure environment variables:
+   - Copy `.env.example` to `.env` and set `OPENAI_API_KEY`.
+
+7. Run the API server locally:
+   ```bash
+   uvicorn api.main:app --reload
+   ```
    - SummariseNode:
      ```bash
      python3 - << 'PYCODE'
