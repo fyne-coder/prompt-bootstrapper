@@ -1,10 +1,17 @@
-pocketflow
-httpx
-beautifulsoup4
-openai
-fastapi
-uvicorn[standard]
-python-dotenv
-colorthief
-cairosvg
-pytest
+## Core dependencies
+pocketflow==0.0.2
+httpx>=0.28,<0.29
+beautifulsoup4>=4.13,<5
+openai>=1.78,<2
+fastapi>=0.111,<0.112
+uvicorn[standard]>=0.29,<0.30
+python-dotenv>=1.0,<2
+colorthief>=0.2,<0.3
+cairosvg>=2.7,<3
+weasyprint>=61,<62
+python-multipart>=0.0,<0.1
+python-jose[cryptography]>=3.3,<4
+
+## Development dependencies
+pytest>=8,<9
+pytest-asyncio>=0.23,<0.24
