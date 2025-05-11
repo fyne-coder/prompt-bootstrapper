@@ -2,30 +2,26 @@ import functools
 import httpx
 from html.parser import HTMLParser
 
-# PocketFlow Node decorator stub with retry logic if pocketflow is unavailable
-try:
-    from pocketflow import Node
-except ImportError:
-    class Node:
-        def __init__(self, retries=0):
-            self.retries = retries
+# Node decorator with retry logic
+class Node:
+    def __init__(self, retries=0):
+        self.retries = retries
 
-        def __call__(self, fn):
-            @functools.wraps(fn)
-            def wrapper(*args, **kwargs):
-                last_exc = None
-                for _ in range(self.retries):
-                    try:
-                        return fn(*args, **kwargs)
-                    except Exception as e:
-                        last_exc = e
-                # final attempt or raise
-                if last_exc is not None:
-                    raise last_exc
-                return fn(*args, **kwargs)
+    def __call__(self, fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            last_exc = None
+            for _ in range(self.retries):
+                try:
+                    return fn(*args, **kwargs)
+                except Exception as e:
+                    last_exc = e
+            if last_exc is not None:
+                raise last_exc
+            return fn(*args, **kwargs)
 
-            wrapper.__wrapped__ = fn
-            return wrapper
+        wrapper.__wrapped__ = fn
+        return wrapper
 
 # HTML text extraction (use BeautifulSoup if available, else fallback)
 class _HTMLTextExtractor(HTMLParser):

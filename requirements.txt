@@ -1,4 +1,4 @@
-pocketflow>=0.4
+pocketflow
 httpx
 beautifulsoup4
 openai
