@@ -1,0 +1,88 @@
+import functools
+import io
+import base64
+from typing import List, Optional
+
+import httpx
+from weasyprint import HTML
+
+# Node decorator with retry logic
+class Node:
+    def __init__(self, retries: int = 0):
+        self.retries = retries
+
+    def __call__(self, fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            last_exc = None
+            for _ in range(self.retries):
+                try:
+                    return fn(*args, **kwargs)
+                except Exception as e:
+                    last_exc = e
+            if last_exc is not None:
+                raise last_exc
+            return fn(*args, **kwargs)
+
+        wrapper.__wrapped__ = fn
+        return wrapper
+
+@Node(retries=0)
+def PdfBuilderNode(
+    logo_url: Optional[str],
+    palette: List[str],
+    prompts: List[str],
+    tips: List[str]
+) -> bytes:
+    """
+    Build a branded PDF containing prompts and usage tips.
+    Embeds logo if available and applies color palette to headings.
+    Returns raw PDF bytes.
+    """
+    # Fetch and embed logo as data URI
+    img_data = None
+    if logo_url:
+        try:
+            resp = httpx.get(logo_url, timeout=10.0)
+            resp.raise_for_status()
+            ct = resp.headers.get("Content-Type", "image/png")
+            b64 = base64.b64encode(resp.content).decode()
+            img_data = f"data:{ct};base64,{b64}"
+        except Exception:
+            img_data = None
+
+    # Determine primary and accent colors
+    primary = palette[0] if len(palette) > 0 else "#000000"
+    accent = palette[1] if len(palette) > 1 else primary
+
+    # Build HTML content
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset=\"utf-8\"> 
+<title>AI Prompt Pack</title>
+<style>
+  body {{ font-family: Arial, sans-serif; margin: 2em; }}
+  .header {{ display: flex; align-items: center; border-bottom: 2px solid {primary}; padding-bottom: 1em; margin-bottom: 2em; }}
+  .header img {{ max-height: 50px; margin-right: 1em; }}
+  .header h1 {{ color: {primary}; margin: 0; }}
+  ol {{ padding-left: 1em; }}
+  li {{ margin-bottom: 1.5em; }}
+  .prompt {{ font-size: 1.1em; color: #333; }}
+  .tip {{ font-size: 0.9em; color: {accent}; margin-top: 0.5em; }}
+</style>
+</head>
+<body>
+<div class=\"header\">"""
+    if img_data:
+        html += f"<img src=\"{img_data}\" alt=\"logo\"/>"
+    html += f"<h1>AI Prompt Pack</h1></div><ol>"
+    for prmpt, tip in zip(prompts, tips):
+        safe_prompt = prmpt.replace('<', '&lt;').replace('>', '&gt;')
+        safe_tip = tip.replace('<', '&lt;').replace('>', '&gt;')
+        html += f"<li><div class=\"prompt\">{safe_prompt}</div><div class=\"tip\">{safe_tip}</div></li>"
+    html += "</ol></body></html>"
+
+    # Generate PDF
+    pdf_bytes = HTML(string=html).write_pdf()
+    return pdf_bytes

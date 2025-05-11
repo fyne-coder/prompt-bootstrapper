@@ -22,9 +22,17 @@ def test_generate_success(monkeypatch):
     monkeypatch.setattr('api.main.FetchSummaryNode', lambda url: "dummy text")
     monkeypatch.setattr('api.main.SummariseNode', lambda text: "summary prompt")
     monkeypatch.setattr('api.main.AssetsNode', lambda url: {"logo_url": "http://logo", "palette": ["#AAA"]})
+    # Stub downstream nodes for full pipeline including PDF builder
+    monkeypatch.setattr('api.main.PromptsNode', lambda mp, pal: [['P1', 'P2']])
+    monkeypatch.setattr('api.main.RankNode', lambda groups: ['P1'])
+    monkeypatch.setattr('api.main.GuideNode', lambda bests: ['Tip1'])
+    monkeypatch.setattr('api.main.PdfBuilderNode', lambda logo_url, palette, prompts, tips: b"%PDF-1.4fakepdf")
     res = client.post("/generate", json={"url": "http://example.com"})
     assert res.status_code == 200
-    assert res.json() == {"master_prompt": "summary prompt", "logo_url": "http://logo", "palette": ["#AAA"]}
+    # Expect PDF stream
+    assert res.headers.get('content-type') == 'application/pdf'
+    assert 'attachment' in res.headers.get('content-disposition', '')
+    assert res.content.startswith(b"%PDF-1.4fakepdf")
 
 def test_generate_node_error(monkeypatch):
     monkeypatch.setattr('api.main.FetchSummaryNode', lambda url: (_ for _ in ()).throw(RuntimeError("fail")))

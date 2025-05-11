@@ -1,7 +1,7 @@
 import os
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from dotenv import load_dotenv
 
 # Load environment variables from .env file if present
@@ -11,10 +11,16 @@ load_dotenv()
 import openai
 openai.api_key = os.getenv('OPENAI_API_KEY')
 
+import io
+
 # Import PocketFlow nodes
 from api.nodes.fetch_summary_node import FetchSummaryNode
 from api.nodes.summarise_node import SummariseNode
 from api.nodes.assets_node import AssetsNode
+from api.nodes.prompts_node import PromptsNode
+from api.nodes.rank_node import RankNode
+from api.nodes.guide_node import GuideNode
+from api.nodes.pdf_builder_node import PdfBuilderNode
 
 app = FastAPI(title="Prompt Bootstrapper API")
 
@@ -31,17 +37,23 @@ async def generate(request: Request):
     if not url:
         raise HTTPException(status_code=400, detail="Missing 'url' in request body")
     try:
-        # Step 1: fetch and summarise content
+        # Pipeline: fetch, summarise, assets, prompts, ranking, tips, PDF
         raw_text = FetchSummaryNode(url)
         master_prompt = SummariseNode(raw_text)
-        # Step 2: extract assets
         assets = AssetsNode(url)
-        response = {
-            "master_prompt": master_prompt,
-            "logo_url": assets.get('logo_url'),
-            "palette": assets.get('palette'),
-        }
-        return JSONResponse(content=response)
+        groups = PromptsNode(master_prompt, assets.get('palette', []))
+        bests = RankNode(groups)
+        tips = GuideNode(bests)
+        pdf_bytes = PdfBuilderNode(
+            assets.get('logo_url'),
+            assets.get('palette', []),
+            bests,
+            tips,
+        )
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=\"prompts.pdf\""},
+        )
     except Exception as e:
-        # Surface errors as HTTP 500
         raise HTTPException(status_code=500, detail=str(e))
