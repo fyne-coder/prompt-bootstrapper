@@ -68,8 +68,12 @@ def test_empty_tip(monkeypatch):
                 )
             )
     monkeypatch.setattr(gn.openai, 'OpenAI', lambda *args, **kwargs: DummyClient4())
-    with pytest.raises(ValueError):
-        GuideNode(prompts)
+    # Should return a fallback tip instead of raising an error
+    result = GuideNode(prompts)
+    assert isinstance(result, list) and len(result) == 1
+    tip = result[0]
+    assert isinstance(tip, str) and tip.strip(), "Fallback tip should be non-empty"
+    assert "model" in tip.lower() and "temperature" in tip.lower()
 
 def test_retry(monkeypatch):
     calls = {'n': 0}

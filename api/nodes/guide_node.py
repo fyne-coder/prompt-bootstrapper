@@ -56,10 +56,16 @@ def GuideNode(prompts: List[str],
         content = resp.choices[0].message.content
     except Exception:
         content = resp["choices"][0]["message"]["content"]
+    # Parse and validate JSON response
     tips = json.loads(content)
     if not isinstance(tips, list) or len(tips) != len(prompts):
         raise ValueError("Invalid number of usage tips returned")
-    for tip in tips:
+    # Replace any empty or invalid tip with a fallback message
+    default_tips = [
+        f"Use the prompt '{p}' with model {model} and temperature {temperature}."
+        for p in prompts
+    ]
+    for i, tip in enumerate(tips):
         if not isinstance(tip, str) or not tip.strip():
-            raise ValueError("Each usage tip must be a non-empty string")
+            tips[i] = default_tips[i]
     return tips
