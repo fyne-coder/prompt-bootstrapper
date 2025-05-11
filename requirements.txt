@@ -3,3 +3,5 @@ httpx
 beautifulsoup4
 openai
 pytest
+colorthief
+cairosvg
