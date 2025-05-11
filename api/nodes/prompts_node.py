@@ -2,11 +2,7 @@ import functools
 import json
 from typing import List
 
-# OpenAI import
-try:
-    import openai
-except ImportError:
-    openai = None
+import openai
 
 # Node decorator (retry stub if PocketFlow not present)
 class Node:
@@ -36,8 +32,8 @@ def PromptsNode(master_prompt: str,
     """
     Generate 3-5 groups of 5 prompts each, returning a list of prompt lists.
     """
-    if openai is None:
-        raise RuntimeError("OpenAI SDK not available")
+    # Initialize OpenAI client
+    client = openai.OpenAI()
     system_msg = {
         "role": "system",
         "content": (
@@ -54,7 +50,8 @@ def PromptsNode(master_prompt: str,
             "Respond only with valid JSON: array of prompt groups."
         )
     }
-    resp = openai.ChatCompletion.create(
+    # Call ChatCompletion via new client interface
+    resp = client.chat.completions.create(
         model=model,
         messages=[system_msg, user_msg],
         temperature=temperature,

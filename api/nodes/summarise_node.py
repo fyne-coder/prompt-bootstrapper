@@ -1,11 +1,6 @@
 import functools
 
-# OpenAI import with fallback stub
-try:
-    import openai
-except ImportError:
-    import types
-    openai = types.SimpleNamespace()
+import openai
 
 # Node decorator with retry logic
 class Node:
@@ -34,6 +29,8 @@ def SummariseNode(text: str, model: str = "gpt-3.5-turbo", temperature: float = 
     Summarise the input text into a single marketing prompt of up to 240 characters.
     Retries up to `retries` times on API or network errors.
     """
+    # Initialize OpenAI client
+    client = openai.OpenAI()
     # Prepare messages
     system_msg = {
         "role": "system",
@@ -45,22 +42,17 @@ def SummariseNode(text: str, model: str = "gpt-3.5-turbo", temperature: float = 
     }
     user_msg = {
         "role": "user",
-        "content": (
-            f"Summarise the following text into one marketing prompt (≤240 chars):\n{text}"
-        ),
+        "content": f"Summarise the following text into one marketing prompt (≤240 chars):\n{text}",
     }
-    # Call OpenAI ChatCompletion
-    resp = openai.ChatCompletion.create(
+    # Call OpenAI ChatCompletion via new client interface
+    resp = client.chat.completions.create(
         model=model,
         messages=[system_msg, user_msg],
         temperature=temperature,
     )
     # Extract content
     try:
-        # new-style response
         content = resp.choices[0].message.content
     except Exception:
-        # fallback for dict-like
         content = resp["choices"][0]["message"]["content"]
-    # Trim to 240 chars
     return content.strip()[:240]
