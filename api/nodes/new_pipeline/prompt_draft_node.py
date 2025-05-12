@@ -3,71 +3,65 @@ from api.nodes.fetch_summary_node import Node
 @Node(retries=3)
 def PromptDraftNode(text: str, framework_plan: dict) -> list[str]:
     """
-    Use LLM to draft 15-25 raw prompts based on cleaned text and framework plan.
-    Returns a list of prompt strings.
+    Draft 10-25 raw prompts with explicit constraints and strong business anchoring.
+    `framework_plan` **must** contain "key_phrases": list[str].
     """
-    import json
-    import openai
+    import json, hashlib, logging, openai
 
-    # Initialize OpenAI client
+    logger = logging.getLogger(__name__)
+    key_phrases: list[str] = framework_plan.get("key_phrases", [])
+    min_phrases_required = 2 if key_phrases else 1        # fallback if none
+
     client = openai.OpenAI()
-    # System message: instruct to draft raw prompts
+
     system_msg = {
         "role": "system",
         "content": (
-            "You are a prompt drafting assistant. Generate between 15 and 25 distinct AI prompts "
-            "based on the following business text and framework plan. Each prompt should start with an imperative verb, "
-            "reference at least one key business term, and be no more than 220 tokens. "
-            "Respond only with a JSON array of prompt strings."
+            "You are a prompt-drafting assistant.\n"
+            "Return ONLY a pure JSON array (no markdown) containing **10-25** prompts.\n"
+            "Each prompt MUST:\n"
+            "• start with an imperative verb\n"
+            f"• contain at least {min_phrases_required} distinct phrases from <key_phrases>\n"
+            "• include explicit output constraints (format / length / schema)\n"
+            "Prefix each prompt with a category tag: 'M:' (Marketing), 'Sa:' (Sales), "
+            "'Su:' (Success), 'P:' (Product), or 'O:' (Ops)."
         ),
     }
-    # User message: provide text and plan
+
     user_msg = {
         "role": "user",
         "content": (
-            f"Business text:\n{text}\n"
-            f"Framework plan: {json.dumps(framework_plan)}"
+            f"<business_text>{text}</business_text>\n"
+            f"<key_phrases>{', '.join(key_phrases)}</key_phrases>\n"
+            f"<framework_plan>{json.dumps(framework_plan, ensure_ascii=False)}</framework_plan>"
         ),
     }
-    # Call chat completion
+
+    seed_val = int(
+        hashlib.sha256((text + 'gpt-4.1-mini-2025-04-14').encode()).hexdigest(), 16
+    ) % 2**31
+
     resp = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4.1-mini-2025-04-14",
         messages=[system_msg, user_msg],
-        temperature=0.7,
+        temperature=0.0,          # deterministic
+        seed=seed_val,
     )
-    # Extract content
-    try:
-        content = resp.choices[0].message.content
-    except Exception:
-        content = resp["choices"][0]["message"]["content"]
-    # Set up logger
-    import logging
-    logger = logging.getLogger(__name__)
-    # Clean up possible markdown or code fences
-    raw = content.strip()
+
+    raw = resp.choices[0].message.content.strip()
     if raw.startswith("```"):
-        # Remove fencing
-        # drop first fence line
-        parts = raw.split('```')
-        # parts: ['', 'json\n[...]', ''] or ['', '', '[...]', '']
-        # take the middle part
-        if len(parts) >= 3:
-            raw = parts[1].strip()
-    # Parse JSON
-    # Parse JSON output
+        raw = raw.split("```", 2)[1].strip()          # strip accidental fences
+
     try:
         prompts = json.loads(raw)
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError:
         logger.error("PromptDraftNode JSON parse error: %s", raw)
         raise
-    # Validate list of strings
-    if not isinstance(prompts, list):
-        raise ValueError("Invalid prompts format: expected list of strings")
-    # Validate count
-    if not (15 <= len(prompts) <= 25):
-        raise ValueError(f"Expected 15-25 prompts, got {len(prompts)}")
-    # Validate each prompt
-    for p in prompts:
-        if not isinstance(p, str) or not p.strip():
-            raise ValueError("Each prompt must be a non-empty string")
+
+    if not (isinstance(prompts, list) and 10 <= len(prompts) <= 25):
+        raise ValueError(f"Expected 10-25 prompts, got {len(prompts)}")
+
+    if any(not isinstance(p, str) or not p.strip() for p in prompts):
+        raise ValueError("All prompts must be non-empty strings")
+
     return prompts

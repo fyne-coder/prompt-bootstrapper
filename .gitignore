@@ -2,3 +2,7 @@ echo ".env"
 # Python cache
 __pycache__/
 *.py[cod]
+.env
+# Vite / React app
+web/node_modules/
+web/dist/
