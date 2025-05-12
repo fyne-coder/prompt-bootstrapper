@@ -87,7 +87,13 @@ function App() {
       )}
       {data && (
         <div>
-          <h2 className="text-2xl font-semibold mb-3">Generated Prompts</h2>
+          {/* Brand header with logo and primary color */}
+          <div className="flex items-center mb-4" style={{ color: data.palette[0] }}>
+            {data.logo_url && (
+              <img src={data.logo_url} alt="logo" className="h-12 mr-3" />
+            )}
+            <h2 className="text-2xl font-semibold">AI Prompt Pack</h2>
+          </div>
           <ol className="list-decimal list-inside space-y-4 mb-4">
             {data.prompts.map((p, i) => (
               <li key={i}>
@@ -115,7 +121,8 @@ function App() {
                 alert('Failed to download PDF.');
               }
             }}
-            className="bg-green-600 text-white p-2 rounded"
+            className="text-white p-2 rounded"
+            style={{ backgroundColor: data.palette[1] || '#10B981' }}
           >
             Download PDF
           </button>
