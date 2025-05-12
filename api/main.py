@@ -22,6 +22,17 @@ from api.nodes.rank_node import RankNode
 from api.nodes.guide_node import GuideNode
 from api.nodes.pdf_builder_node import PdfBuilderNode
 from api.nodes.new_pipeline.pipeline import Generate10Pipeline
+from api.nodes.new_pipeline.web_fetch_node import WebFetchNode
+from api.nodes.new_pipeline.local_fetch_node import LocalFetchNode
+from api.nodes.new_pipeline.clean_node import CleanNode
+from api.nodes.new_pipeline.keyphrase_node import KeyphraseNode
+from api.nodes.new_pipeline.framework_select_node import FrameworkSelectNode
+from api.nodes.new_pipeline.prompt_draft_node import PromptDraftNode
+from api.nodes.new_pipeline.deduplicate_node import DeduplicateNode
+from api.nodes.new_pipeline.business_anchor_guard import BusinessAnchorGuard
+from api.nodes.new_pipeline.quota_enforce_node import QuotaEnforceNode
+from api.nodes.new_pipeline.explanation_node import ExplanationNode
+from api.nodes.assets_node import AssetsNode
 
 import logging
 app = FastAPI(title="Prompt Bootstrapper API")
@@ -76,6 +87,78 @@ async def generate10(request: Request):
     except NotImplementedError as e:
         logger.exception("10-prompt pipeline not yet implemented")
         raise HTTPException(status_code=501, detail=str(e))
+    except ValueError as e:
+        # Fallback validation errors
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         logger.exception("Unhandled error in /generate10 endpoint")
+        raise HTTPException(status_code=500, detail=str(e))
+@app.post("/generate10/json")
+async def generate10_json(request: Request):
+    data = await request.json()
+    url = data.get('url')
+    raw_text = data.get('text')
+    if not url and not raw_text:
+        raise HTTPException(status_code=400, detail="Missing 'url' or 'text' in request body")
+    try:
+        # Determine input text: either user-supplied or fetched+cleaned
+        # Determine input text: from user or fetched+cleaned
+        if raw_text:
+            text = raw_text
+        else:
+            # Step 1: fetch raw HTML and fallback
+            html = WebFetchNode(url)
+            if not html or len(html) < 500:
+                html = LocalFetchNode(url)
+            # Validate content length after fallback
+            if not html or len(html) < 500:
+                raise ValueError("Fetched content too short (<500 characters); please provide raw text or a richer URL.")
+            # Step 2: clean text
+            text = CleanNode(html)
+        # Step 3: extract keyphrases
+        keyphrases = KeyphraseNode(text)
+        # Step 4: framework plan
+        plan = FrameworkSelectNode(keyphrases)
+        # Step 5: draft prompts
+        raw_prompts = PromptDraftNode(text, plan)
+        # Step 6: dedupe
+        unique_prompts = DeduplicateNode(raw_prompts)
+        # Step 7: anchor
+        anchored = BusinessAnchorGuard(unique_prompts, keyphrases)
+        # Step 8: enforce quota
+        final_prompts = QuotaEnforceNode(anchored, plan)
+        # Step 9: explanations
+        tips = ExplanationNode(final_prompts)
+        # Step 10: assets for branding
+        assets = AssetsNode(url)
+        return JSONResponse(content={
+            "prompts": final_prompts,
+            "tips": tips,
+            "logo_url": assets.get('logo_url'),
+            "palette": assets.get('palette', [])
+        })
+    except Exception as e:
+        logger.exception("Error in /generate10/json endpoint")
+        # Distinguish client vs server
+        status = 422 if isinstance(e, ValueError) else 500
+        raise HTTPException(status_code=status, detail=str(e))
+
+@app.post("/generate10/pdf")
+async def generate10_pdf(request: Request):
+    data = await request.json()
+    prompts = data.get("prompts")
+    tips = data.get("tips")
+    logo_url = data.get("logo_url")
+    palette = data.get("palette", [])
+    if not (isinstance(prompts, list) and isinstance(tips, list) and len(prompts) == len(tips)):
+        raise HTTPException(status_code=400, detail="Invalid prompts or tips payload")
+    try:
+        pdf_bytes = PdfBuilderNode(logo_url, palette, prompts, tips)
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=\"prompts10.pdf\""},
+        )
+    except Exception as e:
+        logger.exception("Error in /generate10/pdf endpoint")
         raise HTTPException(status_code=500, detail=str(e))

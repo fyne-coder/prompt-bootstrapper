@@ -4,10 +4,10 @@ from api.nodes.fetch_summary_node import Node
 def BusinessAnchorGuard(prompts: list[str], keyphrases: list[str]) -> list[str]:
     """
     Keep prompts that mention at least one scraped key-phrase.
-    If no key-phrases were extracted, pass all prompts through.
+    If no key-phrases were extracted, return an empty list.
     """
-    if not keyphrases:            # nothing to anchor against
-        return prompts
+    if not keyphrases:
+        return []
 
     lowered_phrases = [kp.lower() for kp in keyphrases]
     anchored = [

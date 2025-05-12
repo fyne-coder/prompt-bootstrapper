@@ -13,17 +13,27 @@ class DummyResponse:
 
 def test_local_fetch_success(monkeypatch):
     # Stub httpx.get to return dummy HTML
-    # Stub httpx.get globally to return dummy HTML
+    # Stub httpx.Client context to return dummy HTML via .get()
     dummy = DummyResponse('<html>ok</html>')
     import httpx
-    monkeypatch.setattr(httpx, 'get', lambda url, timeout: dummy)
+    class DummyClient:
+        def __init__(self, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self, exc_type, exc, tb): return False
+        def get(self, url): return dummy
+    monkeypatch.setattr(httpx, 'Client', lambda **kwargs: DummyClient())
     result = LocalFetchNode('http://example.com')
     assert '<html>ok</html>' == result
 
 def test_local_fetch_error(monkeypatch):
-    # Stub httpx.get globally to return error status
+    # Stub httpx.Client to return dummy with HTTP error
     dummy = DummyResponse('error', status=500)
     import httpx
-    monkeypatch.setattr(httpx, 'get', lambda url, timeout: dummy)
+    class DummyClientErr:
+        def __init__(self, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self, exc_type, exc, tb): return False
+        def get(self, url): return dummy
+    monkeypatch.setattr(httpx, 'Client', lambda **kwargs: DummyClientErr())
     with pytest.raises(Exception):
         LocalFetchNode('http://example.com')

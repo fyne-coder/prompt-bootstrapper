@@ -24,9 +24,13 @@ def Generate10Pipeline(url: str) -> bytes:
     Returns raw PDF bytes.
     """
     # Step 1: fetch
+    # Step 1: fetch via OpenAI web tool, else fallback
     html = WebFetchNode(url)
     if not html or len(html) < 500:
         html = LocalFetchNode(url)
+    # If still too short, abort with error for fallback flow
+    if not html or len(html) < 500:
+        raise ValueError("Fetched content too short (<500 characters); please provide raw text or a richer URL.")
     # Step 2: clean
     text = CleanNode(html)
     # Step 3: keyphrases

@@ -46,8 +46,8 @@ def test_invalid_json(monkeypatch):
         PromptDraftNode("text", {})
 
 def test_invalid_length_short(monkeypatch):
-    # Too few prompts
-    content = json.dumps(["One prompt"] * 10)
+    # Too few prompts (fewer than 10)
+    content = json.dumps(["One prompt"] * 9)
     class DummyClient3:
         def __init__(self):
             self.chat = types.SimpleNamespace(

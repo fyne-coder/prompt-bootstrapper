@@ -1,0 +1,11 @@
+/*
+ * Fyne-Stack design tokens stylesheet
+ * Placeholder for core design tokens (colors, typography, spacing).
+ * Extend or override Tailwind defaults here as needed.
+ */
+
+/* Example token (to be replaced with actual values): */
+:root {
+  --fyne-font-heading: inherit;
+  --fyne-color-primary: #5B21B6;
+}

@@ -30,11 +30,18 @@ def ExplanationNode(prompts: list[str]) -> list[str]:
     except Exception:
         content = resp["choices"][0]["message"]["content"]
     # Clean up possible markdown or code fences
+    # Clean raw content
     raw = content.strip()
+    # Strip code fences
     if raw.startswith("```"):
         parts = raw.split('```')
         if len(parts) >= 3:
             raw = parts[1].strip()
+    # Remove any leading non-JSON prefix (e.g., 'json')
+    first_bracket = raw.find('[')
+    last_bracket = raw.rfind(']')
+    if first_bracket != -1 and last_bracket != -1:
+        raw = raw[first_bracket:last_bracket+1]
     # Parse JSON output
     import logging
     logger = logging.getLogger(__name__)

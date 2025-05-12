@@ -104,19 +104,26 @@ function App() {
           </ol>
           <button
             onClick={async () => {
-              const res = await fetch('/generate10', {
+              const res = await fetch('/generate10/pdf', {
                 method: 'POST',
-                headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({url}),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  prompts: data.prompts,
+                  tips: data.tips,
+                  logo_url: data.logo_url,
+                  palette: data.palette,
+                }),
               });
               if (res.ok) {
                 const blob = await res.blob();
-                const dl = URL.createObjectURL(blob);
+                const urlObj = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = dl;
+                a.href = urlObj;
                 a.download = 'prompts10.pdf';
+                document.body.appendChild(a);
                 a.click();
-                URL.revokeObjectURL(dl);
+                a.remove();
+                URL.revokeObjectURL(urlObj);
               } else {
                 alert('Failed to download PDF.');
               }

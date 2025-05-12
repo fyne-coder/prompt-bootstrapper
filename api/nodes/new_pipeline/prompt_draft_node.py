@@ -49,9 +49,16 @@ def PromptDraftNode(text: str, framework_plan: dict) -> list[str]:
     )
 
     raw = resp.choices[0].message.content.strip()
+    # Strip code fences
     if raw.startswith("```"):
-        raw = raw.split("```", 2)[1].strip()          # strip accidental fences
-
+        parts = raw.split("```")
+        if len(parts) >= 3:
+            raw = parts[1].strip()
+    # Remove any leading non-JSON prefix
+    first_bracket = raw.find('[')
+    last_bracket = raw.rfind(']')
+    if first_bracket != -1 and last_bracket != -1:
+        raw = raw[first_bracket:last_bracket+1]
     try:
         prompts = json.loads(raw)
     except json.JSONDecodeError:
