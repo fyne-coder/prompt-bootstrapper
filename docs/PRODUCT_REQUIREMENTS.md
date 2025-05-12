@@ -20,44 +20,35 @@ SMBs struggle to translate their positioning into effective prompts and to packa
 | **Agency Strategist**               | Repeatable prompt packs per client | Context-switch overhead   |
 | **Enablement Lead**                 | Standardised quality across teams  | Inconsistent prompt style |
 
-## 4 Core User Flow
+## 4 Core Use-Flow
 
-1. User pastes URL → clicks **Generate**.
-2. **Chat Call A**
-   • `web_search` pulls page HTML (≤ 4 k tokens).
-   • `summarise_business` → master prompt (≤ 240 chars).
-   • `fetch_brand_assets` → `{logo_url, palette}`.
-3. **Chat Call B**
-   • Uses master prompt + palette → drafts 3-5 prompt groups, 5 prompts each.
-   • Ranks best prompt per group → writes usage tips.
-4. API **streams PDF** back immediately *(MVP)*.
-5. UI displays prompts & “Download PDF” link; user saves file.
-
-*(Optional enhancement: move Chat + PDF work to a background queue; API returns `job_id`, UI polls for a signed URL.)*
+1. User enters URL → **Validate & crawl** (homepage + first-level links, respect robots).
+2. **Extract copy** → title, meta-description, visible H1-H3, JSON-LD product blocks.
+   • If < 500 chars of usable text ⇒ ask user for extra copy or pull LinkedIn “About”.
+3. **LLM engine** generates **exactly 10 prompts** using category quota + frameworks (see §5).
+4. Prompts + 30-word “When to use” tips returned → one-click **PDF export**.
+5. Job & artefacts stored 7 days, then auto-purged.
 
 ## 5 Key Features
 
 | Area                           | Requirement                                                                                                                 |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| **Input & Validation**         | Accept HTTPS URL; block localhost/private nets.                                                                             |
-| **Two-Step Agent Pipeline**    | Chat A (fetch + summary + assets) and Chat B (prompt generation) for easier debug.                                          |
-| **Brand-Asset Extraction**     | Parse `<meta property="og:image">` / `<link rel="icon">`; fallback to favicon APIs.                                         |
-| **Palette Detection**          | Extract 3–5 dominant HEX colours with ColorThief (SVG via cairosvg).                                                        |
-| **Prompt Framework Selector**  | Mix RTF, RISEN, CRISPE; ensure at least 3 domains (marketing, ops, creative).                                               |
-| **Prompt Ranking**             | Score clarity & relevance; keep best per group.                                                                             |
-| **Usage Guides**               | ≤ 40-word tips incl. ideal temperature/model.                                                                               |
-| **PDF Exporter**               | WeasyPrint; logo top-left; palette drives cover & headings; selectable text.                                                |
-| **Delivery Mode**              | **MVP:** synchronous HTTP attachment.  **Enhancement:** store PDF in object storage (e.g., S3) and return 24 h signed link. |
-| **Background Jobs (Optional)** | Add Redis / RQ *or* PocketFlow async worker for >20 concurrent jobs.                                                        |
-| **Dry-Run Mode**               | CLI flag returns JSON only—no PDF cost.                                                                                     |
+| **Web Scraper**          | Crawl depth = 1; throttle; fail when copy < 500 chars & no fallback provided.                                                                                                                                             |
+| **Content Parser**       | Strip boilerplate; output list of key-phrases (≥ 15) for relevance scoring.                                                                                                                                               |
+| **LLM Prompt-Generator** | Always output **10 prompts** with this mix → 3 Marketing, 2 Sales, 2 Success, 2 Product, 1 Ops. Each starts with an imperative verb, cites ≥ 1 scraped noun, includes output constraints & named framework, ≤ 220 tokens. |
+| **Explanation Writer**   | ≤ 30 words “When to use” note appended to each prompt.                                                                                                                                                                    |
+| **Quality Filters**      | Reject prompts lacking business nouns, duplicates (> 85 % similarity) or toxicity score > 0.3.                                                                                                                            |
+| **PDF Exporter**         | One prompt per page; selectable text only; TOC lists 1-10. Embed favicon if < 100 kB.                                                                                                                                     |
+| **Audit Log**            | Store scrape payload, prompt JSON, and seed-hash for determinism (URL + model ID).                                                                                                                                        |
 
 ## 6 Functional Requirements
 
-1. **Deterministic outputs** when `seed` is fixed.
-2. Prompts explicitly reference nouns/verbs from master prompt.
-3. English v1; locale module pluggable.
-4. PDF sent inline or via signed URL; links expire after 24 h.
-5. Neutral styling fallback when no logo/palette found.
+* **F1 Prompt Quota** Exactly 10 prompts per job or API returns 422.
+* **F2 Category Compliance** Prompt set must satisfy the 3-2-2-2-1 quota.
+* **F3 Business Anchoring** Every prompt contains a scraped brand/entity term.
+* **F4 Determinism** Same URL + model version = byte-identical prompt JSON.
+* **F5 Fallback Flow** If usable copy < 500 chars, system pauses and requests extra input before continuing.
+* **F6 PDF Integrity** Unit test verifies 10 prompt titles rendered; job fails otherwise.
 
 ## 7 Non-Functional Requirements
 
@@ -68,6 +59,8 @@ SMBs struggle to translate their positioning into effective prompts and to packa
 | **Scalability** | 20 concurrent jobs sync • 100+ with optional queue.                   |
 | **Security**    | HTTPS end-to-end; OWASP input sanitisation; purge files after 7 days. |
 | **Compliance**  | No long-term PII; GDPR-friendly.                                      |
+| **Security NF5** | Block private-network URLs; sanitize HTML before LLM.                |
+| **Compliance NF6** | GDPR: user may delete artefacts instantly via API.                 |
 
 ## 8 Success Metrics
 
@@ -82,39 +75,30 @@ SMBs struggle to translate their positioning into effective prompts and to packa
 
 | Layer               | MVP Choice                                | Optional Enhancement                   |
 | ------------------- | ----------------------------------------- | -------------------------------------- |
-| **Orchestration**   | PocketFlow 0.4 Nodes                      | —                                      |
-| **API**             | FastAPI (sync)                            | Same, but enqueues Redis / RQ jobs     |
-| **Front-end**       | React + Vite + Tailwind (`fyne-core.css`) | —                                      |
-| **Background Jobs** | —                                         | Redis / RQ or PocketFlow `run_async()` |
-| **Storage**         | None (stream PDF)                         | S3/B2/etc. for signed URLs             |
-| **PDF Engine**      | WeasyPrint (Cairo + Pango)                | same                                   |
-| **Hosting**         | Render dynos (< \$100 / mo)               | Add Redis add-on if queue enabled      |
+* **Scraper Service** → Playwright + Readability, BeautifulSoup fallback.
+* **Prompt Engine** → LangChain router picks framework, ranks prompts by cosine relevance × verb diversity; keeps top 10.
+* **PDF Service** → WeasyPrint template with Jinja loop (`for p,t in zip(prompts,tips)`).
 
 ### 9.1 Data Flow
 
-URL → `web_search` → HTML (≤ 4 k) → Chat A → master + assets → Chat B → prompts JSON → WeasyPrint (logo & palette) → **HTTP response (PDF)** → user.
-*(With queue: PDF → object store → signed URL → front-end.)*
+URL → Scraper → Clean HTML (≥ 500 chars) → Key-phrases JSON → LLM (seeded) → **10-prompt JSON** → PDF Builder → S3 → Signed URL → User.
 
 ## 10 Assumptions
 
-* Public site contains enough copy to infer positioning.
-* Users have rights to scrape the provided URL.
-* Single-language (English) in v1.
+* Site owner has rights to be scraped **and** will supply extra copy if needed.
 
 ## 11 Out of Scope (v1)
 
-* Browser extensions.
-* Batch multi-URL processing.
-* WYSIWYG prompt editor.
+* Editable prompt WYSIWYG.
+* Batch processing.
+* Real-time Chrome extension.
 
 ## 12 Risks & Mitigations
 
-| Risk                             | Mitigation                                                       |
-| -------------------------------- | ---------------------------------------------------------------- |
-| 25 s synch time-out on big sites | Add queue + object store when concurrency or payload size grows. |
-| Logo not found / monochrome      | Fallback neutral theme; allow manual logo upload.                |
-| Colour extraction inaccurate     | Backup: K-means on homepage screenshot.                          |
-| Model drift                      | Pin model version; nightly regression on golden sites.           |
+| Risk                             | Mitigation                                          |
+| -------------------------------- | --------------------------------------------------- |
+| Low-content sites block progress | Fallback flow requiring user copy / LinkedIn scrape |
+| Framework mix feels off per user | Future setting to weight categories, not v1         |
 
 ## 13 Open Questions
 
@@ -123,5 +107,11 @@ URL → `web_search` → HTML (≤ 4 k) → Chat A → master + assets → Chat 
 3. Include dark-mode variant in PDF?
 
 ---
+
+## 14 Validation Tests (CI)
+
+1. **Unit** — `example.com` fixture → assert 10 prompts JSON & 10 `<h2>` in PDF.
+2. **Smoke** — URL with 300-char copy triggers fallback prompt.
+3. **Regression** — When site text unchanged, prompt set Levenshtein distance ≤ 10 %.
 
 *End of PRD*
