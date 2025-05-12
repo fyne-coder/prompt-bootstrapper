@@ -14,6 +14,7 @@ from api.nodes.new_pipeline.business_anchor_guard import BusinessAnchorGuard
 from api.nodes.new_pipeline.quota_enforce_node import QuotaEnforceNode
 from api.nodes.new_pipeline.explanation_node import ExplanationNode
 from api.nodes.pdf_builder_node import PdfBuilderNode
+from api.nodes.assets_node import AssetsNode
 from api.nodes.new_pipeline.save_artifact_node import SaveArtifactNode
 
 def Generate10Pipeline(url: str) -> bytes:
@@ -32,6 +33,7 @@ def Generate10Pipeline(url: str) -> bytes:
     keyphrases = KeyphraseNode(text)
     # Step 4: framework plan
     plan = FrameworkSelectNode(keyphrases)
+    plan["key_phrases"] = keyphrases          
     # Step 5: draft prompts
     raw_prompts = PromptDraftNode(text, plan)
     # Step 6: dedupe
@@ -42,8 +44,12 @@ def Generate10Pipeline(url: str) -> bytes:
     final_prompts = QuotaEnforceNode(anchored_prompts, plan)
     # Step 9: explanations
     tips = ExplanationNode(final_prompts)
-    # Step 10: PDF build
-    pdf_bytes = PdfBuilderNode(None, [], final_prompts, tips)
-    # Step 11: save artifact (side-effect)
+    # Step 10: Extract assets for branding
+    assets = AssetsNode(url)
+    logo_url = assets.get('logo_url')
+    palette = assets.get('palette', [])
+    # Step 11: PDF build
+    pdf_bytes = PdfBuilderNode(logo_url, palette, final_prompts, tips)
+    # Step 12: save artifact (side-effect)
     SaveArtifactNode(pdf_bytes)
     return pdf_bytes
