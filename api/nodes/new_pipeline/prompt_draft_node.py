@@ -40,8 +40,26 @@ def PromptDraftNode(text: str, framework_plan: dict) -> list[str]:
         content = resp.choices[0].message.content
     except Exception:
         content = resp["choices"][0]["message"]["content"]
+    # Set up logger
+    import logging
+    logger = logging.getLogger(__name__)
+    # Clean up possible markdown or code fences
+    raw = content.strip()
+    if raw.startswith("```"):
+        # Remove fencing
+        # drop first fence line
+        parts = raw.split('```')
+        # parts: ['', 'json\n[...]', ''] or ['', '', '[...]', '']
+        # take the middle part
+        if len(parts) >= 3:
+            raw = parts[1].strip()
     # Parse JSON
-    prompts = json.loads(content)
+    # Parse JSON output
+    try:
+        prompts = json.loads(raw)
+    except json.JSONDecodeError as e:
+        logger.error("PromptDraftNode JSON parse error: %s", raw)
+        raise
     # Validate list of strings
     if not isinstance(prompts, list):
         raise ValueError("Invalid prompts format: expected list of strings")

@@ -23,7 +23,9 @@ from api.nodes.guide_node import GuideNode
 from api.nodes.pdf_builder_node import PdfBuilderNode
 from api.nodes.new_pipeline.pipeline import Generate10Pipeline
 
+import logging
 app = FastAPI(title="Prompt Bootstrapper API")
+logger = logging.getLogger("api.main")
 
 
 @app.get("/healthz")
@@ -71,7 +73,9 @@ async def generate10(request: Request):
             media_type="application/pdf",
             headers={"Content-Disposition": "attachment; filename=\"prompts10.pdf\""},
         )
-    except NotImplementedError:
-        raise HTTPException(status_code=501, detail="10-prompt pipeline not yet implemented")
+    except NotImplementedError as e:
+        logger.exception("10-prompt pipeline not yet implemented")
+        raise HTTPException(status_code=501, detail=str(e))
     except Exception as e:
+        logger.exception("Unhandled error in /generate10 endpoint")
         raise HTTPException(status_code=500, detail=str(e))

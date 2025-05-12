@@ -29,7 +29,20 @@ def ExplanationNode(prompts: list[str]) -> list[str]:
         content = resp.choices[0].message.content
     except Exception:
         content = resp["choices"][0]["message"]["content"]
-    tips = json.loads(content)
+    # Clean up possible markdown or code fences
+    raw = content.strip()
+    if raw.startswith("```"):
+        parts = raw.split('```')
+        if len(parts) >= 3:
+            raw = parts[1].strip()
+    # Parse JSON output
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        tips = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.error("ExplanationNode JSON parse error: %s", raw)
+        raise
     if not isinstance(tips, list) or len(tips) != len(prompts):
         raise ValueError(f"Expected {len(prompts)} tips, got {len(tips) if isinstance(tips, list) else 'invalid'}")
     for tip in tips:
