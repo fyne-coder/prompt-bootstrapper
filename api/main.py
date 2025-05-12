@@ -21,6 +21,7 @@ from api.nodes.prompts_node import PromptsNode
 from api.nodes.rank_node import RankNode
 from api.nodes.guide_node import GuideNode
 from api.nodes.pdf_builder_node import PdfBuilderNode
+from api.nodes.new_pipeline.pipeline import Generate10Pipeline
 
 app = FastAPI(title="Prompt Bootstrapper API")
 
@@ -55,5 +56,22 @@ async def generate(request: Request):
             media_type="application/pdf",
             headers={"Content-Disposition": "attachment; filename=\"prompts.pdf\""},
         )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+@app.post("/generate10")
+async def generate10(request: Request):
+    data = await request.json()
+    url = data.get('url')
+    if not url:
+        raise HTTPException(status_code=400, detail="Missing 'url' in request body")
+    try:
+        pdf_bytes = Generate10Pipeline(url)
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=\"prompts10.pdf\""},
+        )
+    except NotImplementedError:
+        raise HTTPException(status_code=501, detail="10-prompt pipeline not yet implemented")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
