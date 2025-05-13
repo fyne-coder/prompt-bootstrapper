@@ -7,7 +7,7 @@ import logging
 from api.nodes.new_pipeline.web_fetch_node import WebFetchNode
 from api.nodes.new_pipeline.local_fetch_node import LocalFetchNode
 from api.nodes.new_pipeline.clean_node import CleanNode
-from api.nodes.new_pipeline.keyphrase_node import KeyphraseNode
+from api.nodes.new_pipeline.mini_master_prompt_node import MiniMasterPromptNode
 from api.nodes.new_pipeline.framework_select_node import FrameworkSelectNode
 from api.nodes.new_pipeline.prompt_draft_node import PromptDraftNode
 from api.nodes.new_pipeline.deduplicate_node import DeduplicateNode
@@ -41,22 +41,20 @@ def Generate10Pipeline(url: str) -> bytes:
     # Step 2: clean
     text = CleanNode(html)
     logger.info("CleanNode output text length=%d", len(text))
-    # Step 3: keyphrases
-    keyphrases = KeyphraseNode(text)
-    logger.info("KeyphraseNode output: %r", keyphrases)
-    # Step 4: framework plan
-    plan = FrameworkSelectNode(keyphrases)
+    # Step 3: generate business capsule
+    capsule = MiniMasterPromptNode(html)
+    logger.info("MiniMasterPromptNode capsule length=%d", len(capsule))
+    # Step 4: framework plan (static quotas)
+    plan = FrameworkSelectNode([])
     logger.info("FrameworkSelectNode plan: %r", plan)
-    plan["key_phrases"] = keyphrases          
-    # Step 5: draft prompts
-    raw_prompts = PromptDraftNode(text, plan)
+    # Step 5: draft prompts based on capsule
+    raw_prompts = PromptDraftNode(capsule, plan)
     logger.info("PromptDraftNode output: %r", raw_prompts)
     # Step 6: dedupe
     unique_prompts = DeduplicateNode(raw_prompts)
     logger.info("DeduplicateNode output: %r", unique_prompts)
-    # Step 7: business anchor
-    # BusinessAnchorGuard may filter within categories or lists
-    anchored_prompts = BusinessAnchorGuard(unique_prompts, keyphrases)
+    # Step 7: business anchor using capsule nouns
+    anchored_prompts = BusinessAnchorGuard(unique_prompts, capsule)
     logger.info("BusinessAnchorGuard output: %r", anchored_prompts)
     # Step 8: enforce quota
     final_prompts = QuotaEnforceNode(anchored_prompts, plan)

@@ -19,11 +19,20 @@ def test_generate_missing_url():
 
 def test_generate_success(monkeypatch):
     # Stub nodes to return predictable results
+    # Stub legacy nodes (not used after profile-based rewrite)
     monkeypatch.setattr('api.main.FetchSummaryNode', lambda url: "dummy text")
     monkeypatch.setattr('api.main.SummariseNode', lambda text: "summary prompt")
+    # Stub the new one-shot profile node and prompt drafting
+    profile_stub = {
+        "name": "Test", "sector": "S", "services": ["A"],
+        "geo": "G", "value_props": ["V1", "V2"],
+        "brand_tone": "friendly", "keywords": ["k1", "k2"]
+    }
+    monkeypatch.setattr('api.main.PageLLMProfileNode', lambda url: profile_stub)
+    monkeypatch.setattr('api.main.PromptDraftNode', lambda text, framework_plan: [['P1', 'P2']])
     monkeypatch.setattr('api.main.AssetsNode', lambda url: {"logo_url": "http://logo", "palette": ["#AAA"]})
     # Stub downstream nodes for full pipeline including PDF builder
-    monkeypatch.setattr('api.main.PromptsNode', lambda mp, pal: [['P1', 'P2']])
+    # (PromptsNode is no longer used by /generate)
     monkeypatch.setattr('api.main.RankNode', lambda groups: ['P1'])
     monkeypatch.setattr('api.main.GuideNode', lambda bests: ['Tip1'])
     monkeypatch.setattr('api.main.PdfBuilderNode', lambda logo_url, palette, prompts, tips: b"%PDF-1.4fakepdf")
@@ -35,7 +44,8 @@ def test_generate_success(monkeypatch):
     assert res.content.startswith(b"%PDF-1.4fakepdf")
 
 def test_generate_node_error(monkeypatch):
-    monkeypatch.setattr('api.main.FetchSummaryNode', lambda url: (_ for _ in ()).throw(RuntimeError("fail")))
+    # Simulate error in profile generation
+    monkeypatch.setattr('api.main.PageLLMProfileNode', lambda url: (_ for _ in ()).throw(RuntimeError("fail")))
     res = client.post("/generate", json={"url": "http://example.com"})
     assert res.status_code == 500
     assert "fail" in res.json().get('detail', '')

@@ -1,6 +1,7 @@
 import pytest
+pytest.skip("KeyphraseNode removed; capsule step in new pipeline replaces it.", allow_module_level=True)
 
-from api.nodes.new_pipeline.keyphrase_node import KeyphraseNode
+"""This test is skipped because KeyphraseNode is removed in the new pipeline."""
 
 def test_keyphrase_node_basic():
     text = (

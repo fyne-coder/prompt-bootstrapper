@@ -23,7 +23,7 @@ def test_end_to_end_pdf_generation(monkeypatch):
     call_counter = {'n': 0}
 
     # Define dummy OpenAI client
-    def create(model, messages, temperature):
+    def create(*args, **kwargs):
         call_counter['n'] += 1
         # SummariseNode -> one summary string
         if call_counter['n'] == 1:
@@ -53,6 +53,21 @@ def test_end_to_end_pdf_generation(monkeypatch):
     # Monkey-patch OpenAI client and disable WebSearch
     monkeypatch.setattr(openai, 'OpenAI', lambda *args, **kwargs: DummyClient())
     monkeypatch.setattr(openai, 'WebSearch', None, raising=False)
+    # Stub PageLLMProfileNode to use the one-shot LLM profile instead of summary+fetch
+    import api.main as main_module
+    profile_data = {
+        "name": "Acme", "sector": "Test", "services": ["A"],
+        "geo": "X", "value_props": ["V1", "V2"],
+        "brand_tone": "friendly", "keywords": ["k1", "k2"]
+    }
+    monkeypatch.setattr(main_module, 'PageLLMProfileNode', lambda url: profile_data)
+    # Stub PromptDraftNode to bump LLM call and return grouped prompts
+    def fake_prompt_draft(text, framework_plan):
+        # bump call count for second LLM stage
+        openai.OpenAI().chat.completions.create()
+        # return three groups of five prompts
+        return [[f"P{g}{i}" for i in range(5)] for g in range(1, 4)]
+    monkeypatch.setattr(main_module, 'PromptDraftNode', fake_prompt_draft)
 
     # Stub fetch, assets, and PDF builder to avoid network and WeasyPrint in CI
     monkeypatch.setattr(main, 'FetchSummaryNode', lambda url: "dummy text")

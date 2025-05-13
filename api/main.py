@@ -21,6 +21,7 @@ from api.nodes.prompts_node import PromptsNode
 from api.nodes.rank_node import RankNode
 from api.nodes.guide_node import GuideNode
 from api.nodes.pdf_builder_node import PdfBuilderNode
+from api.nodes.page_llm_profile_node import PageLLMProfileNode
 from api.nodes.new_pipeline.pipeline import Generate10Pipeline
 from api.nodes.new_pipeline.web_fetch_node import WebFetchNode
 from api.nodes.new_pipeline.local_fetch_node import LocalFetchNode
@@ -61,13 +62,23 @@ async def generate(request: Request):
     if not url:
         raise HTTPException(status_code=400, detail="Missing 'url' in request body")
     try:
-        # Pipeline: fetch, summarise, assets, prompts, ranking, tips, PDF
-        raw_text = FetchSummaryNode(url)
-        master_prompt = SummariseNode(raw_text)
-        assets = AssetsNode(url)
-        groups = PromptsNode(master_prompt, assets.get('palette', []))
-        bests = RankNode(groups)
+        # Pipeline: one-shot profile, prompts, ranking, tips, assets, PDF
+        profile = PageLLMProfileNode(url)
+        framework_plan = {
+            "key_phrases": profile["keywords"],
+            "sector":       profile["sector"],
+            "services":     profile["services"],
+            "geo":          profile["geo"],
+            "brand_tone":   profile["brand_tone"],
+        }
+        prompts = PromptDraftNode(
+            text=" ".join(profile["value_props"]),
+            framework_plan=framework_plan,
+        )
+        bests = RankNode(prompts)
         tips = GuideNode(bests)
+        # branding assets
+        assets = AssetsNode(url)
         pdf_bytes = PdfBuilderNode(
             assets.get('logo_url'),
             assets.get('palette', []),

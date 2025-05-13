@@ -1,7 +1,13 @@
-from api.nodes.fetch_summary_node import Node
 import logging
+import json
+from api.nodes.fetch_summary_node import Node
+from api.config import OPENAI_MODEL
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Prompt quotas per category (total 9 slots)
+QUOTAS = {"Marketing": 3, "Sales": 2, "Product": 2, "Success": 1, "Ops": 1}
 
 @Node(retries=3)
 def PromptDraftNode(text: str, framework_plan: dict) -> dict[str, list[str]]:
@@ -9,48 +15,40 @@ def PromptDraftNode(text: str, framework_plan: dict) -> dict[str, list[str]]:
     Draft 10-25 raw prompts with explicit constraints and strong business anchoring.
     `framework_plan` **must** contain "key_phrases": list[str].
     """
-    import json, hashlib, logging, openai
+    import openai, hashlib
 
-    logger = logging.getLogger(__name__)
-    key_phrases: list[str] = framework_plan.get("key_phrases", [])
-    min_phrases_required = 2 if key_phrases else 1        # fallback if none
-
+    # Framework plan may include quotas and capsule context
     client = openai.OpenAI()
 
+    # System prompt for generating prompt packs grounded in business capsule
     system_msg = {
         "role": "system",
         "content": (
-            "Draft 10-25 AI prompts grouped by business function. "
-            "Return ONLY valid JSON shaped as:\n"
-            "{\n"
-            "  \"Marketing\": [\"You are a ...\", ...],\n"
-            "  \"Sales\": [...],\n"
-            "  \"Success\": [...],\n"
-            "  \"Product\": [...],\n"
-            "  \"Ops\": [...]\n"
-            "}\n"
-            f"Rules: • each prompt begins with \"You are a ...\" • min {min_phrases_required} key-phrases "
-            "• ≤220 tokens • quotas: Marketing 3, Sales 2, Success 2, Product 2, Ops 1."
+            "You are a Prompt-Pack Generator. Given a Business Context Capsule and a framework plan, "
+            "generate 10–25 high-quality prompts grouped by business function. "
+            "Return ONLY valid JSON mapping categories to arrays of prompt strings. "
+            "Prompts must be no more than 220 tokens each. "
+            f"Quotas per category: {QUOTAS}."
         )
     }
 
     user_msg = {
         "role": "user",
         "content": (
-            f"<business_text>{text}</business_text>\n"
-            f"<key_phrases>{', '.join(key_phrases)}</key_phrases>\n"
+            f"<capsule>{text}</capsule>\n"
             f"<framework_plan>{json.dumps(framework_plan, ensure_ascii=False)}</framework_plan>"
         ),
     }
 
+    # Use deterministic seed for repeatability
     seed_val = int(
-        hashlib.sha256((text + 'gpt-4.1-mini-2025-04-14').encode()).hexdigest(), 16
+        hashlib.sha256((text + OPENAI_MODEL).encode()).hexdigest(), 16
     ) % 2**31
 
     resp = client.chat.completions.create(
-        model="gpt-4.1-mini-2025-04-14",
+        model=OPENAI_MODEL,
         messages=[system_msg, user_msg],
-        temperature=0.0,          # deterministic
+        temperature=0.35,
         seed=seed_val,
     )
 
