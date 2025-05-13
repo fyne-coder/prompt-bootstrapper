@@ -38,11 +38,14 @@ from api.nodes.assets_node import AssetsNode
 import logging
 logging.basicConfig(level=logging.INFO)
 from fastapi.middleware.cors import CORSMiddleware
+# Read CORS origins from environment (CORS_ORIGINS or ALLOWED_ORIGINS)
+_cors_env = os.getenv("CORS_ORIGINS") or os.getenv("ALLOWED_ORIGINS", "")
+ALLOWED_ORIGINS = [u.strip() for u in _cors_env.split(",") if u.strip()]
 app = FastAPI(title="Prompt Bootstrapper API")
-# Enable CORS so the static front-end can call API from a different origin
+# Enable CORS so specified front-ends can call the API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # adjust to specific origins in production
+    allow_origins=ALLOWED_ORIGINS or ["*"],  # use env list or fallback to all
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
