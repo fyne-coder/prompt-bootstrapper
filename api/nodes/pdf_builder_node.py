@@ -4,6 +4,7 @@ import base64
 from typing import List, Optional
 
 import httpx
+import logging
 from weasyprint import HTML
 
 # Node decorator with retry logic
@@ -83,6 +84,26 @@ def PdfBuilderNode(
         html += f"<li><div class=\"prompt\">{safe_prompt}</div><div class=\"tip\">{safe_tip}</div></li>"
     html += "</ol></body></html>"
 
-    # Generate PDF
-    pdf_bytes = HTML(string=html).write_pdf()
-    return pdf_bytes
+    # Generate PDF, with detailed logging on failure
+    try:
+        # Log WeasyPrint/PyDyf versions for debugging
+        try:
+            import pkg_resources
+            wp_ver = pkg_resources.get_distribution('weasyprint').version
+            pd_ver = pkg_resources.get_distribution('pydyf').version
+            logging.getLogger(__name__).info(
+                f"PdfBuilderNode using WeasyPrint {wp_ver}, PyDyf {pd_ver}")
+        except Exception:
+            pass
+        pdf_bytes = HTML(string=html).write_pdf()
+        return pdf_bytes
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        # Log context: counts and html size
+        logger.error(
+            f"PdfBuilderNode error: logo_url={logo_url}, "
+            f"palette={palette}, prompts={len(prompts)}, tips={len(tips)}, html_length={len(html)}"
+        )
+        logger.exception("Exception stack trace:")
+        # Re-raise to be caught by FastAPI and returned as HTTP 500
+        raise
