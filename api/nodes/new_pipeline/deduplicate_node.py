@@ -1,7 +1,15 @@
 from api.nodes.fetch_summary_node import Node
 
 @Node(retries=1)
-def DeduplicateNode(prompts: list[str]) -> list[str]:
+def DeduplicateNode(prompts):
+    """
+    Remove duplicate prompts based on cosine similarity (>85%).
+    Accepts either a list of prompts or a dict mapping categories to lists.
+    Returns deduplicated list or dict of deduplicated lists.
+    """
+    # If grouped dict, apply dedupe per category
+    if isinstance(prompts, dict):
+        return {cat: DeduplicateNode(items) for cat, items in prompts.items()}
     """
     Remove duplicate prompts based on cosine similarity (>85%).
     Returns a list of unique prompts.

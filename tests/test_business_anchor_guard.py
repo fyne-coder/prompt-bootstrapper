@@ -25,7 +25,8 @@ def test_business_anchor_case_insensitive():
 def test_business_anchor_no_phrases():
     prompts = ["Some prompt"]
     result = BusinessAnchorGuard(prompts, [])
-    assert result == []
+    # No keyphrases: prompts should pass through unchanged
+    assert result == prompts
 
 def test_business_anchor_empty_prompts():
     result = BusinessAnchorGuard([], ["term"])

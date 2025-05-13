@@ -6,12 +6,14 @@ def BusinessAnchorGuard(prompts, keyphrases: list[str]):
     Keep prompts that mention at least one scraped key-phrase.
     If no key-phrases were extracted, return an empty list.
     """
-    if not keyphrases:
-        # No keyphrases: do not filter; return original prompts
-        return prompts
-    # If grouped dict, apply per category
+    # Skip anchoring for grouped prompts (dict input)
     if isinstance(prompts, dict):
-        return {cat: BusinessAnchorGuard(items, keyphrases) for cat, items in prompts.items()}
+        logging.getLogger(__name__).info(
+            "BusinessAnchorGuard: grouped prompts detected, skipping filter")
+        return prompts
+    if not keyphrases:
+        # No keyphrases: return original prompts
+        return prompts
 
     lowered_phrases = [kp.lower() for kp in keyphrases]
     anchored = [
