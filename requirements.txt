@@ -8,7 +8,8 @@ uvicorn[standard]>=0.29,<0.30
 python-dotenv>=1.0,<2
 colorthief>=0.2,<0.3
 cairosvg>=2.7,<3
-weasyprint>=61,<62
+ # Pin to 61.1 due to known PDF.__init__ signature issue in 61.2
+ weasyprint==61.1
 python-multipart>=0.0,<0.1
 python-jose[cryptography]>=3.3,<4
 
