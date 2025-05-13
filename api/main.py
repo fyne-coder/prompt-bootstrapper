@@ -35,6 +35,7 @@ from api.nodes.new_pipeline.quota_enforce_node import QuotaEnforceNode
 from api.nodes.assets_node import AssetsNode
 
 import logging
+logging.basicConfig(level=logging.INFO)
 from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="Prompt Bootstrapper API")
 # Enable CORS so the static front-end can call API from a different origin

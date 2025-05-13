@@ -2,6 +2,7 @@
 Orchestrates the 10-prompt pipeline according to the PRD v2 DAG.
 """
 import io
+import logging
 
 from api.nodes.new_pipeline.web_fetch_node import WebFetchNode
 from api.nodes.new_pipeline.local_fetch_node import LocalFetchNode
@@ -17,6 +18,9 @@ from api.nodes.pdf_builder_node import PdfBuilderNode
 from api.nodes.assets_node import AssetsNode
 from api.nodes.new_pipeline.save_artifact_node import SaveArtifactNode
 
+# Pipeline logger
+logger = logging.getLogger(__name__)
+
 def Generate10Pipeline(url: str) -> bytes:
     """
     Full pipeline: fetch → clean → keyphrases → framework plan → draft → dedupe
@@ -26,31 +30,43 @@ def Generate10Pipeline(url: str) -> bytes:
     # Step 1: fetch
     # Step 1: fetch via OpenAI web tool, else fallback
     html = WebFetchNode(url)
+    logger.info("Fetched HTML via web tool, length=%d", len(html))
     if not html or len(html) < 500:
+        logger.info("WebFetchNode returned insufficient content, falling back to LocalFetchNode")
         html = LocalFetchNode(url)
+        logger.info("Fetched HTML via local fetch, length=%d", len(html))
     # If still too short, abort with error for fallback flow
     if not html or len(html) < 500:
         raise ValueError("Fetched content too short (<500 characters); please provide raw text or a richer URL.")
     # Step 2: clean
     text = CleanNode(html)
+    logger.info("CleanNode output text length=%d", len(text))
     # Step 3: keyphrases
     keyphrases = KeyphraseNode(text)
+    logger.info("KeyphraseNode output: %r", keyphrases)
     # Step 4: framework plan
     plan = FrameworkSelectNode(keyphrases)
+    logger.info("FrameworkSelectNode plan: %r", plan)
     plan["key_phrases"] = keyphrases          
     # Step 5: draft prompts
     raw_prompts = PromptDraftNode(text, plan)
+    logger.info("PromptDraftNode output: %r", raw_prompts)
     # Step 6: dedupe
     unique_prompts = DeduplicateNode(raw_prompts)
+    logger.info("DeduplicateNode output: %r", unique_prompts)
     # Step 7: business anchor
+    # BusinessAnchorGuard may filter within categories or lists
     anchored_prompts = BusinessAnchorGuard(unique_prompts, keyphrases)
+    logger.info("BusinessAnchorGuard output: %r", anchored_prompts)
     # Step 8: enforce quota
     final_prompts = QuotaEnforceNode(anchored_prompts, plan)
+    logger.info("QuotaEnforceNode output: %r", final_prompts)
     # Step 9: Extract assets for branding
     assets = AssetsNode(url)
     logo_url = assets.get('logo_url')
     palette = assets.get('palette', [])
     # Step 10: PDF build (no tips)
+    logger.info("Generating PDF with logo_url=%s, palette=%r, categories=%s", logo_url, palette, list(final_prompts.keys()))
     pdf_bytes = PdfBuilderNode(logo_url, palette, final_prompts)
     # Step 12: save artifact (side-effect)
     SaveArtifactNode(pdf_bytes)
