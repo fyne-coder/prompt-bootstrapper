@@ -52,8 +52,7 @@ class Node:
 def PdfBuilderNode(
     logo_url: Optional[str],
     palette: List[str],
-    prompts: List[str],
-    tips: List[str]
+    prompts_by_cat: dict[str, list[str]]
 ) -> bytes:
     """
     Build a branded PDF containing prompts and usage tips.
@@ -76,7 +75,7 @@ def PdfBuilderNode(
     primary = palette[0] if len(palette) > 0 else "#000000"
     accent = palette[1] if len(palette) > 1 else primary
 
-    # Build HTML content
+    # Build HTML content with grouped prompts
     html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -97,12 +96,15 @@ def PdfBuilderNode(
 <div class=\"header\">"""
     if img_data:
         html += f"<img src=\"{img_data}\" alt=\"logo\"/>"
-    html += f"<h1>AI Prompt Pack</h1></div><ol>"
-    for prmpt, tip in zip(prompts, tips):
-        safe_prompt = prmpt.replace('<', '&lt;').replace('>', '&gt;')
-        safe_tip = tip.replace('<', '&lt;').replace('>', '&gt;')
-        html += f"<li><div class=\"prompt\">{safe_prompt}</div><div class=\"tip\">{safe_tip}</div></li>"
-    html += "</ol></body></html>"
+    html += f"<h1>AI Prompt Pack</h1></div>"  # header end
+    # Render grouped prompts by category
+    for category, items in prompts_by_cat.items():
+        html += f"<section><h2>{category}</h2><ol>"
+        for prmpt in items:
+            safe_prompt = prmpt.replace('<', '&lt;').replace('>', '&gt;')
+            html += f"<li class=\"prompt\">{safe_prompt}</li>"
+        html += "</ol></section>"
+    html += "</body></html>"
 
     # Generate PDF, with detailed logging on failure
     try:

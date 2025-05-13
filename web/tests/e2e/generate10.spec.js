@@ -5,12 +5,13 @@ test.describe('Generate10 Page', () => {
     const context = page.context();
     // Stub JSON response
     await context.route('**/generate10/json', async (route) => {
+      // Stub grouped prompts: single category 'Test'
+      const grouped = { Test: Array.from({ length: 10 }, (_, i) => `P${i}`) };
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          prompts: Array.from({ length: 10 }, (_, i) => `P${i}`),
-          tips: Array.from({ length: 10 }, (_, i) => `Tip ${i}`),
+          prompts: grouped,
           logo_url: null,
           palette: ['#123456', '#abcdef'],
         }),
@@ -31,12 +32,11 @@ test.describe('Generate10 Page', () => {
     // Generate prompts
     await page.fill('input[type="url"]', 'https://example.com');
     await page.click('button:has-text("Generate")');
-    // Check list of prompts and tips
+    // Check list of prompts
     const items = page.locator('ol li');
     await expect(items).toHaveCount(10);
     for (let i = 0; i < 10; i++) {
       await expect(items.nth(i)).toContainText(`P${i}`);
-      await expect(items.nth(i)).toContainText(`Tip ${i}`);
     }
     // Download PDF
     const [download] = await Promise.all([

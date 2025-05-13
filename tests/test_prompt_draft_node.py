@@ -17,9 +17,9 @@ class DummyResponse:
         self.choices = [DummyChoice(content)]
 
 def test_success(monkeypatch):
-    # Prepare 16 prompts
+    # Prepare 16 prompts under 'Marketing' category
     prompts = [f"Do action {i}" for i in range(16)]
-    content = json.dumps(prompts)
+    content = json.dumps({"Marketing": prompts})
     class DummyClient:
         def __init__(self):
             self.chat = types.SimpleNamespace(
@@ -29,8 +29,12 @@ def test_success(monkeypatch):
             )
     import openai
     monkeypatch.setattr(openai, 'OpenAI', lambda *args, **kwargs: DummyClient())
+    # Stub returns grouped JSON with 'Marketing' category
+    # Monkey plan only needs Marketing quota
     result = PromptDraftNode("text", {'Marketing':3})
-    assert result == prompts
+    assert isinstance(result, dict)
+    # Ensure the 'Marketing' category has our 16 prompts
+    assert result == {"Marketing": prompts}
 
 def test_invalid_json(monkeypatch):
     class DummyClient2:
@@ -46,8 +50,8 @@ def test_invalid_json(monkeypatch):
         PromptDraftNode("text", {})
 
 def test_invalid_length_short(monkeypatch):
-    # Too few prompts (fewer than 10)
-    content = json.dumps(["One prompt"] * 9)
+    # Too few prompts (fewer than 10), now allow fewer
+    content = json.dumps({"Marketing": ["One prompt"] * 9})
     class DummyClient3:
         def __init__(self):
             self.chat = types.SimpleNamespace(
@@ -55,12 +59,15 @@ def test_invalid_length_short(monkeypatch):
             )
     import openai
     monkeypatch.setattr(openai, 'OpenAI', lambda *args, **kwargs: DummyClient3())
-    with pytest.raises(ValueError):
-        PromptDraftNode("text", {})
+    # Now allows fewer prompts; returns dict with one category empty
+    result = PromptDraftNode("text", {'Marketing':3})
+    assert isinstance(result, dict)
+    # Marketing has 9 prompts
+    assert result.get('Marketing') == ["One prompt"] * 9
 
 def test_invalid_length_long(monkeypatch):
-    # Too many prompts
-    content = json.dumps([f"P{i}" for i in range(30)])
+    # Too many prompts (more than 25), now allow many
+    content = json.dumps({"Marketing": [f"P{i}" for i in range(30)]})
     class DummyClient4:
         def __init__(self):
             self.chat = types.SimpleNamespace(
@@ -68,8 +75,11 @@ def test_invalid_length_long(monkeypatch):
             )
     import openai
     monkeypatch.setattr(openai, 'OpenAI', lambda *args, **kwargs: DummyClient4())
-    with pytest.raises(ValueError):
-        PromptDraftNode("text", {})
+    # Now allows many prompts; returns dict with 'Marketing' key
+    result = PromptDraftNode("text", {'Marketing':3})
+    assert isinstance(result, dict)
+    # Marketing has 30 prompts, excess will be handled later
+    assert result.get('Marketing') == [f"P{i}" for i in range(30)]
 
 def test_invalid_item(monkeypatch):
     # Non-string entry

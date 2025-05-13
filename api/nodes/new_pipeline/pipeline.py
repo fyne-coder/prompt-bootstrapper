@@ -12,7 +12,7 @@ from api.nodes.new_pipeline.prompt_draft_node import PromptDraftNode
 from api.nodes.new_pipeline.deduplicate_node import DeduplicateNode
 from api.nodes.new_pipeline.business_anchor_guard import BusinessAnchorGuard
 from api.nodes.new_pipeline.quota_enforce_node import QuotaEnforceNode
-from api.nodes.new_pipeline.explanation_node import ExplanationNode
+# from api.nodes.new_pipeline.explanation_node import ExplanationNode  # removed: tips no longer used
 from api.nodes.pdf_builder_node import PdfBuilderNode
 from api.nodes.assets_node import AssetsNode
 from api.nodes.new_pipeline.save_artifact_node import SaveArtifactNode
@@ -46,14 +46,12 @@ def Generate10Pipeline(url: str) -> bytes:
     anchored_prompts = BusinessAnchorGuard(unique_prompts, keyphrases)
     # Step 8: enforce quota
     final_prompts = QuotaEnforceNode(anchored_prompts, plan)
-    # Step 9: explanations
-    tips = ExplanationNode(final_prompts)
-    # Step 10: Extract assets for branding
+    # Step 9: Extract assets for branding
     assets = AssetsNode(url)
     logo_url = assets.get('logo_url')
     palette = assets.get('palette', [])
-    # Step 11: PDF build
-    pdf_bytes = PdfBuilderNode(logo_url, palette, final_prompts, tips)
+    # Step 10: PDF build (no tips)
+    pdf_bytes = PdfBuilderNode(logo_url, palette, final_prompts)
     # Step 12: save artifact (side-effect)
     SaveArtifactNode(pdf_bytes)
     return pdf_bytes

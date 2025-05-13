@@ -132,20 +132,22 @@ function App() {
             )}
             <h2 className="text-2xl font-semibold">AI Prompt Pack</h2>
           </div>
-          <ol className="list-decimal list-inside space-y-4 mb-4">
-            {data.prompts.map((p, i) => (
-              <li key={i}>
-                <p className="font-medium">{p}</p>
-                <p className="text-sm text-gray-600">{data.tips[i]}</p>
-              </li>
-            ))}
-          </ol>
+          {/* Grouped prompts by category */}
+          {Object.entries(data.prompts).map(([cat, items]) => (
+            <section key={cat} className="mb-6">
+              <h3 className="text-xl font-semibold mb-2">{cat}</h3>
+              <ol className="list-decimal list-inside space-y-1 mb-4">
+                {items.map((p, i) => (
+                  <li key={i}>{p}</li>
+                ))}
+              </ol>
+            </section>
+          ))}
           <button
             onClick={async () => {
               // Debug: initiate PDF download
               console.log('Requesting PDF from:', `${API_BASE}/generate10/pdf`, {
                 prompts: data.prompts,
-                tips: data.tips,
                 logo_url: data.logo_url,
                 palette: data.palette,
               });
@@ -154,7 +156,6 @@ function App() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   prompts: data.prompts,
-                  tips: data.tips,
                   logo_url: data.logo_url,
                   palette: data.palette,
                 }),

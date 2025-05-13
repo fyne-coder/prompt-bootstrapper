@@ -4,7 +4,8 @@ from api.nodes.pdf_builder_node import PdfBuilderNode
 
 def test_pdf_without_logo():
     # Should produce a valid PDF even without logo or palette
-    pdf = PdfBuilderNode(None, [], ["Prompt A", "Prompt B"], ["Tip A", "Tip B"])
+    # Supply a grouped dict mapping a category to prompts
+    pdf = PdfBuilderNode(None, [], {'Test': ["Prompt A", "Prompt B"]})
     assert isinstance(pdf, (bytes, bytearray))
     # PDF files start with %PDF
     assert pdf[:4] == b"%PDF"
@@ -22,6 +23,7 @@ def test_pdf_with_logo(monkeypatch):
             pass
 
     monkeypatch.setattr(pb.httpx, 'get', lambda url, timeout: DummyResp())
-    pdf = PdfBuilderNode("http://example.com/logo.png", ["#FF0000", "#00FF00"], ["P1"], ["T1"])
+    # Supply grouped prompts dict
+    pdf = PdfBuilderNode("http://example.com/logo.png", ["#FF0000", "#00FF00"], {'Test': ["P1"]})
     assert isinstance(pdf, (bytes, bytearray))
     assert pdf[:4] == b"%PDF"
