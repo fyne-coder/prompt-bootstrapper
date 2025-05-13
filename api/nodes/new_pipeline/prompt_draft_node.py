@@ -1,4 +1,7 @@
 from api.nodes.fetch_summary_node import Node
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 @Node(retries=3)
 def PromptDraftNode(text: str, framework_plan: dict) -> dict[str, list[str]]:
@@ -52,6 +55,7 @@ def PromptDraftNode(text: str, framework_plan: dict) -> dict[str, list[str]]:
     )
 
     raw = resp.choices[0].message.content.strip()
+    logger.info("PromptDraftNode raw LLM output: %s", raw[:1000])
     # Strip code fences and extract JSON object
     if raw.startswith("```"):
         parts = raw.split("```")
@@ -64,6 +68,7 @@ def PromptDraftNode(text: str, framework_plan: dict) -> dict[str, list[str]]:
         raw = raw[obj_start:obj_end+1]
     try:
         prompts_by_cat = json.loads(raw)
+        logger.info("PromptDraftNode parsed JSON: %r", prompts_by_cat)
     except json.JSONDecodeError:
         logger.error("PromptDraftNode JSON parse error: %s", raw)
         raise
