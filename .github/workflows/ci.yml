@@ -46,3 +46,21 @@ jobs:
         run: |
           if [ -f web/package.json ]; then npm test; fi
         shell: bash
+  deploy:
+    name: Deploy to Render
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Trigger API service deploy
+        run: |
+          curl -X POST https://api.render.com/v1/services/${{ secrets.RENDER_API_SERVICE_ID }}/deploys \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache": true}'
+      - name: Trigger Web service deploy
+        run: |
+          curl -X POST https://api.render.com/v1/services/${{ secrets.RENDER_WEB_SERVICE_ID }}/deploys \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache": true}'

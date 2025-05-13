@@ -38,6 +38,9 @@ Prerequisites:
    ```bash
    pytest -q
    ```
+  
+5. End-to-end E2E tests (CI-only):
+   These are configured via GitHub Actions in `.github/workflows/e2e.yml` and run automatically on push and PR.  
 
 5. Manual testing examples:
    - FetchSummaryNode:
@@ -49,8 +52,19 @@ Prerequisites:
      PYCODE
     ```
 
-6. Configure environment variables:
+6. Configure environment variables (backend):
    - Copy `.env.example` to `.env` and set `OPENAI_API_KEY`.
+
+7. Configure front-end environment (static site):
+   - Define `VITE_API_BASE_URL` to point at your deployed API, e.g.
+     ```bash
+     VITE_API_BASE_URL=https://prompt-backend.onrender.com
+     ```
+   - In development, leave `VITE_API_BASE_URL` unset so the Vite proxy handles `/generate10/*` calls.
+   - (Optional) For CI deploy via GitHub Actions, set the following repository secrets:
+     - `RENDER_API_SERVICE_ID` — Render service ID for the FastAPI backend
+     - `RENDER_WEB_SERVICE_ID` — Render service ID for the React static site
+     - `RENDER_API_KEY` — Render API key with deploy permissions
 
 7. Run the API server locally:
    ```bash

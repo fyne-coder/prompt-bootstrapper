@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
 function App() {
+  // Base URL for API; use VITE_API_BASE_URL in production, empty for local dev
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -12,31 +14,56 @@ function App() {
     e.preventDefault();
     if (!url) return;
     e.preventDefault();
+    // Debug logging: inputs
+    console.log('handleSubmit:', { isFallback, url, fallbackText });
     setError('');
     setLoading(true);
     try {
-      const endpoint = '/generate10/json';
+      const endpoint = `${API_BASE}/generate10/json`;
       const body = isFallback
         ? { text: fallbackText }
         : { url };
+      // Debug: fetch call
+      console.log('Calling API:', endpoint, body);
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+      console.log('Response status:', res.status);
       if (res.ok) {
-        const json = await res.json();
+        const json = await res.json().catch((e) => {
+          console.error('Failed to parse JSON from 200 response:', e);
+          return {};
+        });
+        console.log('Parsed JSON:', json);
         setData(json);
         setIsFallback(false);
       } else if (res.status === 422) {
-        const err = await res.json();
-        setError(err.detail || 'Insufficient prompts generated');
+        // Validation error: fallback flow
+        let errJson = {};
+        try {
+          errJson = await res.json();
+        } catch (e) {
+          console.error('422 response JSON parse error:', e);
+        }
+        const detail = errJson.detail || 'Insufficient prompts generated';
+        console.error('422 detail:', detail);
+        setError(detail);
         setIsFallback(true);
       } else {
-        const err = await res.json();
-        throw new Error(err.detail || res.statusText);
+        // Other errors: log raw text
+        let text = '';
+        try {
+          text = await res.text();
+        } catch (e) {
+          console.error('Error reading error text:', e);
+        }
+        console.error(`API error ${res.status}:`, text);
+        throw new Error(text || res.statusText);
       }
     } catch (err) {
+      console.error('handleSubmit caught error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -104,7 +131,14 @@ function App() {
           </ol>
           <button
             onClick={async () => {
-              const res = await fetch('/generate10/pdf', {
+              // Debug: initiate PDF download
+              console.log('Requesting PDF from:', `${API_BASE}/generate10/pdf`, {
+                prompts: data.prompts,
+                tips: data.tips,
+                logo_url: data.logo_url,
+                palette: data.palette,
+              });
+              const res = await fetch(`${API_BASE}/generate10/pdf`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -114,8 +148,10 @@ function App() {
                   palette: data.palette,
                 }),
               });
+              console.log('PDF response status:', res.status);
               if (res.ok) {
                 const blob = await res.blob();
+                console.log('Received PDF blob, size:', blob.size);
                 const urlObj = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = urlObj;
@@ -125,7 +161,14 @@ function App() {
                 a.remove();
                 URL.revokeObjectURL(urlObj);
               } else {
-                alert('Failed to download PDF.');
+                let text = '';
+                try {
+                  text = await res.text();
+                } catch (e) {
+                  console.error('Error reading PDF error text:', e);
+                }
+                console.error(`PDF download failed ${res.status}:`, text);
+                alert(`Failed to download PDF: ${text || res.statusText}`);
               }
             }}
             className="text-white p-2 rounded"
