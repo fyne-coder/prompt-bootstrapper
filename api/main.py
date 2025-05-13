@@ -35,7 +35,16 @@ from api.nodes.new_pipeline.explanation_node import ExplanationNode
 from api.nodes.assets_node import AssetsNode
 
 import logging
+from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="Prompt Bootstrapper API")
+# Enable CORS so the static front-end can call API from a different origin
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # adjust to specific origins in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 logger = logging.getLogger("api.main")
 
 
