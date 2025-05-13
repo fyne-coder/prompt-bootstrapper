@@ -11,6 +11,9 @@ def QuotaEnforceNode(prompts_by_cat: dict[str, list[str]], plan: dict) -> dict[s
     Silently allow fewer if not enough prompts present.
     Returns a dict mapping each category to its trimmed list.
     """
+    # If a flat list is passed (legacy), wrap in a default category
+    if isinstance(prompts_by_cat, list):
+        prompts_by_cat = { 'Prompts': prompts_by_cat }
     trimmed: dict[str, list[str]] = {}
     for category, quota in plan.items():
         items = prompts_by_cat.get(category, []) or []
