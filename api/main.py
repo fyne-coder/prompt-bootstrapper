@@ -31,7 +31,7 @@ from api.nodes.new_pipeline.prompt_draft_node import PromptDraftNode
 from api.nodes.new_pipeline.deduplicate_node import DeduplicateNode
 from api.nodes.new_pipeline.business_anchor_guard import BusinessAnchorGuard
 from api.nodes.new_pipeline.quota_enforce_node import QuotaEnforceNode
-from api.nodes.new_pipeline.explanation_node import ExplanationNode
+# ExplanationNode and tips removed
 from api.nodes.assets_node import AssetsNode
 
 import logging
@@ -136,13 +136,11 @@ async def generate10_json(request: Request):
         anchored = BusinessAnchorGuard(unique_prompts, keyphrases)
         # Step 8: enforce quota
         final_prompts = QuotaEnforceNode(anchored, plan)
-        # Step 9: explanations
-        tips = ExplanationNode(final_prompts)
+        # Step 9: skip explanations (tips removed)
         # Step 10: assets for branding
         assets = AssetsNode(url)
         return JSONResponse(content={
             "prompts": final_prompts,
-            "tips": tips,
             "logo_url": assets.get('logo_url'),
             "palette": assets.get('palette', [])
         })
@@ -155,14 +153,13 @@ async def generate10_json(request: Request):
 @app.post("/generate10/pdf")
 async def generate10_pdf(request: Request):
     data = await request.json()
-    prompts = data.get("prompts")
-    tips = data.get("tips")
+    prompts_by_cat = data.get("prompts")
     logo_url = data.get("logo_url")
     palette = data.get("palette", [])
-    if not (isinstance(prompts, list) and isinstance(tips, list) and len(prompts) == len(tips)):
-        raise HTTPException(status_code=400, detail="Invalid prompts or tips payload")
+    if not isinstance(prompts_by_cat, dict):
+        raise HTTPException(status_code=400, detail="Invalid prompts payload; expected object mapping categories to arrays")
     try:
-        pdf_bytes = PdfBuilderNode(logo_url, palette, prompts, tips)
+        pdf_bytes = PdfBuilderNode(logo_url, palette, prompts_by_cat)
         return StreamingResponse(
             io.BytesIO(pdf_bytes),
             media_type="application/pdf",
