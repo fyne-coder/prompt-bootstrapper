@@ -7,14 +7,20 @@ from typing import List, Optional
 import httpx
 import logging
 
-# Monkey-patch PyDyf PDF constructor to accept extra args for compatibility
+# Monkey-patch PyDyf PDF constructor to accept version and identifier args and set version attribute
 try:
     import pydyf
     _orig_pdf_init = pydyf.PDF.__init__
-    def _patched_pdf_init(self, *args, **kwargs):
-        return _orig_pdf_init(self)
+    def _patched_pdf_init(self, version=b'1.7', identifier=None, *args, **kwargs):
+        # Store PDF version for compatibility
+        try:
+            self.version = version if isinstance(version, (bytes, bytearray)) else str(version).encode()
+        except Exception:
+            self.version = b'1.7'
+        # Call original initializer
+        _orig_pdf_init(self)
     pydyf.PDF.__init__ = _patched_pdf_init
-    logging.getLogger(__name__).info("Patched pydyf.PDF.__init__ to accept extra args")
+    logging.getLogger(__name__).info("Patched pydyf.PDF.__init__ to accept version and identifier args")
 except ImportError:
     logging.getLogger(__name__).warning("pydyf not installed; cannot patch PDF constructor")
 except Exception as e:
