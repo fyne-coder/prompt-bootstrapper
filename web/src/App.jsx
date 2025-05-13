@@ -32,13 +32,24 @@ function App() {
       });
       console.log('Response status:', res.status);
       if (res.ok) {
-        const json = await res.json().catch((e) => {
-          console.error('Failed to parse JSON from 200 response:', e);
-          return {};
-        });
-        console.log('Parsed JSON:', json);
-        setData(json);
-        setIsFallback(false);
+        // Attempt to read raw text for debugging
+        let text = '';
+        try {
+          text = await res.text();
+          console.log('Raw 200 response text:', text);
+          const json = JSON.parse(text);
+          console.log('Parsed JSON:', json);
+          setData(json);
+          setIsFallback(false);
+          setError('');
+          return;
+        } catch (e) {
+          console.error('Error parsing JSON from 200 response:', e);
+          console.error('Response text was:', text);
+          setError('Invalid JSON response from server');
+          setLoading(false);
+          return;
+        }
       } else if (res.status === 422) {
         // Validation error: fallback flow
         let errJson = {};
