@@ -3,9 +3,37 @@ import io
 import base64
 from typing import List, Optional
 
+# Core imports
 import httpx
 import logging
+
+# Monkey-patch PyDyf PDF constructor to accept extra args for compatibility
+try:
+    import pydyf
+    _orig_pdf_init = pydyf.PDF.__init__
+    def _patched_pdf_init(self, *args, **kwargs):
+        return _orig_pdf_init(self)
+    pydyf.PDF.__init__ = _patched_pdf_init
+    logging.getLogger(__name__).info("Patched pydyf.PDF.__init__ to accept extra args")
+except ImportError:
+    logging.getLogger(__name__).warning("pydyf not installed; cannot patch PDF constructor")
+except Exception as e:
+    logging.getLogger(__name__).error(f"Error patching pydyf.PDF.__init__: {e}")
+
 from weasyprint import HTML
+
+# Monkey-patch PyDyf PDF constructor to accept extra args for compatibility
+try:
+    import pydyf
+    _orig_pdf_init = pydyf.PDF.__init__
+    def _patched_pdf_init(self, *args, **kwargs):
+        return _orig_pdf_init(self)
+    pydyf.PDF.__init__ = _patched_pdf_init
+    logging.getLogger(__name__).info("Patched pydyf.PDF.__init__ to accept extra args")
+except ImportError:
+    logging.getLogger(__name__).warning("pydyf not installed; cannot patch PDF constructor")
+except Exception as e:
+    logging.getLogger(__name__).error(f"Error patching pydyf.PDF.__init__: {e}")
 
 # Node decorator with retry logic
 class Node:
