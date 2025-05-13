@@ -6,3 +6,9 @@ __pycache__/
 # Vite / React app
 web/node_modules/
 web/dist/
+# Local exports of generated PDFs
+exports/
+# Pytest-generated output
+pytest-of-arthurlee/
+# Front-end test artifacts
+web/test-results/
