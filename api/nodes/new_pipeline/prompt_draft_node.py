@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Prompt quotas per category (for reference)
-QUOTAS = {"Marketing": 3, "Sales": 2, "Product": 2, "Success": 1, "Ops": 1}
+QUOTAS = {"Marketing": 2, "Sales": 2, "Product": 2, "Support": 2, "Operations": 2}
 
 @Node(retries=3)
 def PromptDraftNode(text: str, framework_plan: dict) -> dict[str, list[str]]:
