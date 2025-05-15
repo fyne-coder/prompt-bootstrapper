@@ -112,7 +112,8 @@ RTC3   = Role ▸ Task ▸ Context ▸ Constraints ▸ Criteria
     # ——— Group back into { category: [ multi-line-prompt, … ] } ———
     prompts_by_cat: dict[str, list[str]] = {}
     for obj in prompt_list:
-        full_prompt = "\n".join(obj["prompt_lines"])
+        # join lines with an extra blank line for legibility
+        full_prompt = "\n\n".join(obj["prompt_lines"])
         prompts_by_cat.setdefault(obj["category"], []).append(full_prompt)
 
     return prompts_by_cat
