@@ -17,9 +17,14 @@ class DummyResponse:
         self.choices = [DummyChoice(content)]
 
 def test_success(monkeypatch):
-    # Prepare 16 prompts under 'Marketing' category
+    # Prepare 16 prompt objects under 'Marketing' category
     prompts = [f"Do action {i}" for i in range(16)]
-    content = json.dumps({"Marketing": prompts})
+    # LLM returns a JSON array of objects with category, framework, prompt_lines
+    objs = [
+        {"category": "Marketing", "framework": "RTF", "prompt_lines": [p]}
+        for p in prompts
+    ]
+    content = json.dumps(objs)
     class DummyClient:
         def __init__(self):
             self.chat = types.SimpleNamespace(
@@ -46,7 +51,7 @@ def test_invalid_json(monkeypatch):
             )
     import openai
     monkeypatch.setattr(openai, 'OpenAI', lambda *args, **kwargs: DummyClient2())
-    with pytest.raises(json.JSONDecodeError):
+    with pytest.raises(ValueError):
         PromptDraftNode("text", {})
 
 def test_invalid_length_short(monkeypatch):

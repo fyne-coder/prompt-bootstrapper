@@ -72,6 +72,16 @@ RTC3   = Role ▸ Task ▸ Context ▸ Constraints ▸ Criteria
 
     raw = resp.choices[0].message.content.strip()
     logger.info("Raw LLM output: %s", raw[:500])
+    # Legacy fallback: if the LLM returned a plain dict of category→list[str], return it directly
+    try:
+        parsed0 = json.loads(raw)
+        if isinstance(parsed0, dict) and all(
+            isinstance(v, list) and all(isinstance(x, str) for x in v)
+            for v in parsed0.values()
+        ):
+            return parsed0
+    except json.JSONDecodeError:
+        pass
 
     # strip fences
     if raw.startswith("```"):

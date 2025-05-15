@@ -88,7 +88,7 @@ def PdfBuilderNode(
   .header h1 {{ color: {primary}; margin: 0; }}
   ol {{ padding-left: 1em; }}
   li {{ margin-bottom: 1.5em; }}
-  .prompt {{ font-size: 1.1em; color: #333; }}
+  .prompt {{ font-size: 1.1em; color: #333; white-space: pre-wrap; }}
   .tip {{ font-size: 0.9em; color: {accent}; margin-top: 0.5em; }}
 </style>
 </head>
